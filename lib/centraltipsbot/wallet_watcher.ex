@@ -14,17 +14,13 @@ defmodule Centraltipsbot.WalletWatcher do
   def init(:ok) do
     # Kick off the first request
     # Note: Delay this by the initial interval so that if we get into
-    # a crash cycle we don't DDOS the wallet service
+    # a crash cycle we don't DDOS the CC service
+    Logger.info("Wallet Watcher started...")
     Process.send_after(self(), :check, @interval)
     {:ok, nil}
   end
 
-  defp process_transaction(transaction, last_processed_object) do
-    Logger.info("Processing transaction: #{inspect(transaction)}")
-
-    memo = transaction["memo"]
-    amount_received = transaction["amount_received"]
-
+  defp update_balance(twitter_user_id, amount_received, updated_last_processed) do
     # Transactionally update the user's balance + the last processed to this transaction
     Multi.new |>
     # Either insert a new user with the amount received as their balance,
@@ -32,14 +28,57 @@ defmodule Centraltipsbot.WalletWatcher do
     Multi.insert(:update_balance,
       %Balance{
         source: "twitter",
-        source_id: memo, # TODO: Look up the memo as a Twitter username instead
+        source_id: twitter_user_id,
         balance: amount_received
       },
       conflict_target: [:source, :source_id],
       on_conflict: [inc: [balance: amount_received]]
     ) |>
-    Multi.update(:update_last_processed, LastProcessed.changeset(last_processed_object, %{last_processed: transaction})) |>
+    Multi.update(:update_last_processed, updated_last_processed) |>
     Repo.transaction
+  end
+
+  defp process_transaction(transaction, last_processed_object) do
+    Logger.info("Processing transaction: #{inspect(transaction)}")
+
+    # Twitter username should be in the memo, but we don't know if it's valid yet (it could be anything)
+    # Remove any leading @
+    memo = transaction["memo"]
+    maybe_twitter_username = memo |> String.replace_prefix("@", "")
+    amount_received = transaction["amount_received"]
+
+    # If we are able to process this transaction, we will update the last processed object to it
+    updated_last_processed = LastProcessed.changeset(last_processed_object, %{last_processed: transaction})
+
+    twitter_user_id = try do
+      user = ExTwitter.user(maybe_twitter_username)
+      user.id_str
+    rescue
+
+      err in [ExTwitter.Error] -> case err.code do
+        # Twitter error code 50 is user not found: https://developer.twitter.com/en/support/twitter-api/error-troubleshooting#error-codes
+        50 ->
+          Logger.info("Unable to find twitter username in transaction memo #{memo}")
+          nil
+        # Twitter error code 63 is user suspended + can't get data on them
+        63 ->
+          Logger.info("Twitter username in transaction memo #{memo} is suspended")
+          nil
+        # Any other Twitter error is unexpected
+        _ -> raise err
+      end
+    end
+
+    case twitter_user_id do
+      nil ->
+        # Memo was not a valid Twitter user, so mark it processed and move on
+        Repo.update(updated_last_processed)
+      _ ->
+        # Memo was a valid Twitter user, and we have their Twitter ID.
+        # Update the balance for this user and mark the transaction processed
+        Logger.info("Memo #{memo} is a twitter username with twitter user ID #{twitter_user_id}")
+        update_balance(twitter_user_id, amount_received, updated_last_processed)
+    end
 
     Logger.info("Successfully processed transaction")
   end
