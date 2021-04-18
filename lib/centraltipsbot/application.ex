@@ -15,6 +15,8 @@ defmodule Centraltipsbot.Application do
       {Phoenix.PubSub, name: Centraltipsbot.PubSub},
       # Start the wallet watcher service
       {Centraltipsbot.WalletWatcher, :ok},
+      # Start the DM service
+      {Centraltipsbot.DMListener, :ok},
       # Start the Endpoint (http/https)
       # Add this when we want it! Leave it for now to clean up logs
       # CentraltipsbotWeb.Endpoint

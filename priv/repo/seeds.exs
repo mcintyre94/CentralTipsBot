@@ -16,3 +16,11 @@ Repo.insert!(%LastProcessed{
   name: "wallet_incoming",
   last_processed: %{}
 })
+
+Repo.insert!(%LastProcessed{
+  name: "twitter_dms",
+  last_processed: %{
+    pagination_cursor: nil,
+    dm_id: nil
+  }
+})
