@@ -1,7 +1,8 @@
 defmodule Centraltipsbot.DMListener do
   use GenServer
   require Logger
-  alias Centraltipsbot.{Repo, Twitter, LastProcessed}
+  alias Centraltipsbot.{Repo, Twitter, LastProcessed, Optout}
+  alias Ecto.Multi
   import Ecto.Query
 
   @interval Application.get_env(:centraltipsbot, :dm_listener)[:interval]
@@ -26,15 +27,50 @@ defmodule Centraltipsbot.DMListener do
     # Otherwise, log + ignore it (can't process it)
     # For all, send a read receipt
     # For processed ones, send a react emoji?
-    # text = dm.message_create.message_data.text
 
-    # TODO: actually process DMs!
-    query =
+    text = dm.message_create.message_data.text
+    text_normalised = text |> String.replace(" ", "") |> String.downcase
+    sender_id = dm.message_create.sender_id
+    is_email? = text |> String.contains?("@")
+
+    set_processed_query =
       from LastProcessed,
       where: [name: "twitter_dms"],
       update: [set: [last_processed: fragment(~s<jsonb_set(last_processed, '{dm_id}', ?)>, ^dm.id)]]
-    Repo.update_all(query, [])
 
+    case text_normalised do
+      "optout" ->
+        # User has opted out
+        Logger.info("Recording opt out for Twitter ID #{sender_id}")
+        Multi.new |>
+        Multi.insert(:insert_optout,
+          %Optout{source: "twitter", source_id: sender_id},
+          conflict_target: [:source, :source_id],
+          on_conflict: :nothing
+        ) |>
+        Multi.update_all(:update_last_processed, set_processed_query, []) |>
+        Repo.transaction
+
+      "optin" ->
+        # User has opted in
+        Logger.info("Removing opt out for Twitter ID #{sender_id}")
+        Multi.new |>
+        Multi.delete_all(:delete_optout, (from Optout, where: [source: "twitter", source_id: ^sender_id])) |>
+        Multi.update_all(:update_last_processed, set_processed_query, []) |>
+        Repo.transaction
+
+      _ when is_email? ->
+        # Assume any other message with an @ is an email address
+        Logger.info("Recording #{text} as email address for Twitter ID #{sender_id}")
+        Repo.update_all(set_processed_query, [])
+
+      _ ->
+        # Nothing to do for this DM
+        Logger.info("Skipping DM ID #{dm.id} from Twitter ID #{sender_id}")
+        Repo.update_all(set_processed_query, [])
+    end
+
+    Twitter.mark_dms_read(sender_id, dm.id)
     Logger.info("Successfully processed DM")
   end
 

@@ -15,7 +15,7 @@ config :centraltipsbot,
     public_key: "6ritkvkev6qnq933qf96kyn7rnvfyi7ey3kvyrp9f7ipqvtk67yn9iyleti9irne" # deposits wallet public key
   ],
   dm_listener: [
-    interval: 10_000, # milliseconds
+    interval: 60_000, # milliseconds (Twitter limit is 15 req/15 mins)
     bot_twitter_id: "1382976893515862016"
   ]
 

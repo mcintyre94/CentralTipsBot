@@ -10,6 +10,6 @@ defmodule Centraltipsbot.Repo.Migrations.CreateLastProcessed do
       timestamps()
     end
 
-    create unique_index(:last_processed, [:name], name: :unique_name)
+    create unique_index(:last_processed, [:name], name: :last_processed_unique_name)
   end
 end

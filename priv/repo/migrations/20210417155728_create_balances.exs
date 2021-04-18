@@ -11,6 +11,6 @@ defmodule Centraltipsbot.Repo.Migrations.CreateBalances do
       timestamps()
     end
 
-    create unique_index(:balances, [:source, :source_id], name: :unique_source_source_id)
+    create unique_index(:balances, [:source, :source_id], name: :balances_unique_source_source_id)
   end
 end
