@@ -1,7 +1,7 @@
 defmodule Centraltipsbot.DMListener do
   use GenServer
   require Logger
-  alias Centraltipsbot.{Repo, Twitter, LastProcessed, Optout}
+  alias Centraltipsbot.{Repo, Twitter, LastProcessed, Optout, Wallet}
   alias Ecto.Multi
   import Ecto.Query
 
@@ -62,7 +62,19 @@ defmodule Centraltipsbot.DMListener do
       _ when is_email? ->
         # Assume any other message with an @ is an email address
         Logger.info("Recording #{text} as email address for Twitter ID #{sender_id}")
-        Repo.update_all(set_processed_query, [])
+
+        Multi.new |>
+        Multi.insert(:set_email,
+          %Wallet{
+            source: "twitter",
+            source_id: sender_id,
+            email: text
+          },
+          conflict_target: [:source, :source_id],
+          on_conflict: [set: [email: text]]
+        ) |>
+        Multi.update_all(:update_last_processed, set_processed_query, []) |>
+        Repo.transaction
 
       _ ->
         # Nothing to do for this DM
