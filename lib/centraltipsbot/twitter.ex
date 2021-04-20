@@ -22,14 +22,16 @@ defmodule Centraltipsbot.Twitter do
   end
 
   # Request DMs since the given cursor, which represents the last request we made
+  # Returns newest first
   def dms_since_cursor(cursor, dms_so_far \\ []) do
     response = fetch_next_dms(cursor)
     dms_so_far = [response.events | dms_so_far]
 
     case response |> Map.get(:next_cursor) do
       nil ->
-        # No further pages, return what we got + the last cursor
-        %{cursor: cursor, dms: dms_so_far |> List.flatten }
+        # No further pages, return what we got (sorted newest first) + the last cursor
+        sorted_dms = dms_so_far |> List.flatten |> Enum.sort_by(fn d -> (d.created_timestamp |> String.to_integer) * -1 end)
+        %{cursor: cursor, dms: sorted_dms}
       next_cursor ->
         # Further pages, request more
         dms_since_cursor(next_cursor, dms_so_far)
