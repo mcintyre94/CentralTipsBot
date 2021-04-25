@@ -24,3 +24,10 @@ Repo.insert!(%LastProcessed{
     dm_id: nil
   }
 })
+
+Repo.insert!(%LastProcessed{
+  name: "twitter_tweets",
+  last_processed: %{
+    tweet_id: nil
+  }
+})

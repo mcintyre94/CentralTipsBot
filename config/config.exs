@@ -17,6 +17,9 @@ config :centraltipsbot,
   dm_listener: [
     interval: 60_000, # milliseconds (Twitter limit is 15 req/15 mins)
     bot_twitter_id: "1382976893515862016"
+  ],
+  tweet_listener: [
+    interval: 10_000 # milliseconds (Twitter limit is 450 req/15 mins)
   ]
 
 # Configures the endpoint
