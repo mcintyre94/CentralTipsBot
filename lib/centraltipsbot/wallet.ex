@@ -8,6 +8,7 @@ defmodule Centraltipsbot.Wallet do
     field :email, :string
     field :source, :string
     field :source_id, :string
+    field :confirmed, :boolean
 
     timestamps()
   end
@@ -15,7 +16,7 @@ defmodule Centraltipsbot.Wallet do
   @doc false
   def changeset(wallet, attrs) do
     wallet
-    |> cast(attrs, [:source, :source_id, :email])
-    |> validate_required([:source, :source_id, :email])
+    |> cast(attrs, [:source, :source_id, :email, :confirmed])
+    |> validate_required([:source, :source_id, :email, :confirmed])
   end
 end

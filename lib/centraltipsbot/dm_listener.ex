@@ -21,6 +21,13 @@ defmodule Centraltipsbot.DMListener do
     {:ok, nil}
   end
 
+  defp send_confirm_dm(recipient_id, email) do
+    text = "Thanks! I recorded an email of \"#{email}\". Is that correct? Please say \"Yes\" or send me your correct Email."
+    quick_replies = [%{label: "Yes"}]
+    Twitter.send_dm(recipient_id, text, quick_replies)
+    {:ok, nil}
+  end
+
   defp process_dm(dm) do
     # If it lowercase + remove spaces = "optout", then add user to optouts
     # If it contains an "@", then store that as email for the sender
@@ -59,20 +66,38 @@ defmodule Centraltipsbot.DMListener do
         Multi.update_all(:update_last_processed, set_processed_query, []) |>
         Repo.transaction
 
+      _ when text in ["yes", "yep", "confirm"] ->
+        # User has confirmed their email address
+        Logger.info("Marking email for Twitter ID #{sender_id} as confirmed")
+        Multi.new |>
+        Multi.update_all(
+          :mark_confirmed,
+          (from Wallet,
+            where: [source_id: "twitter", source_id: ^sender_id],
+            update: [set: [confirmed: true]]),
+            []
+        ) |>
+        Multi.update_all(:update_last_processed, set_processed_query, []) |>
+        Repo.transaction
+
       _ when is_email? ->
         # Assume any other message with an @ is an email address
         Logger.info("Recording #{text} as email address for Twitter ID #{sender_id}")
 
         Multi.new |>
+        # Add the email (unconfirmed)
         Multi.insert(:set_email,
           %Wallet{
             source: "twitter",
             source_id: sender_id,
-            email: text
+            email: text,
+            confirmed: false
           },
           conflict_target: [:source, :source_id],
-          on_conflict: [set: [email: text]]
+          on_conflict: [set: [email: text, confirmed: false]]
         ) |>
+        # Prompt the user to confirm it
+        Multi.run(:dm_to_confirm, fn _, _ -> send_confirm_dm(sender_id, text) end) |>
         Multi.update_all(:update_last_processed, set_processed_query, []) |>
         Repo.transaction
 

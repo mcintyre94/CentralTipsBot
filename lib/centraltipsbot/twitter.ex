@@ -126,4 +126,49 @@ defmodule Centraltipsbot.Twitter do
         Logger.error("Received unexpected response from Twitter API: #{inspect(response)}")
     end
   end
+
+  def send_dm(recipient_id, text, quick_replies \\ []) do
+    # ExTwitter has no support for sending JSON - need to use low-level functions instead
+    # Implementation mostly from ExTwitter.OAuth
+    url = ExTwitter.API.Base.request_url("1.1/direct_messages/events/new.json")
+
+    oauth = ExTwitter.Config.get_tuples
+    credentials = OAuther.credentials(
+      consumer_key: oauth[:consumer_key],
+      consumer_secret: oauth[:consumer_secret],
+      token: oauth[:access_token],
+      token_secret: oauth[:access_token_secret]
+    )
+    params = []
+    signed_params = OAuther.sign("post", url, params, credentials)
+    {header, _} = OAuther.header(signed_params)
+
+    quick_replies = case quick_replies do
+      [] -> %{}
+      _ -> %{
+       quick_reply: %{
+         type: "options",
+         options: quick_replies
+       }
+      }
+    end
+
+    message_data = Map.merge(%{
+      text: text
+    }, quick_replies)
+
+    body = %{
+      event: %{
+          type: "message_create",
+          message_create: %{
+              target: %{
+                  recipient_id: recipient_id
+              },
+              message_data: message_data
+          }
+      }
+    } |> Jason.encode!
+
+    HTTPoison.post url, body, [header]
+  end
 end

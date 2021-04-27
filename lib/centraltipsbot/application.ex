@@ -12,13 +12,14 @@ defmodule Centraltipsbot.Application do
       # Start the Telemetry supervisor
       CentraltipsbotWeb.Telemetry,
       # Start the PubSub system
-      {Phoenix.PubSub, name: Centraltipsbot.PubSub},
+      # Add this when we want it!
+      # {Phoenix.PubSub, name: Centraltipsbot.PubSub},
       # Start the wallet watcher service
       # {Centraltipsbot.WalletWatcher, :ok},
       # Start the DM listener service
-      # {Centraltipsbot.DMListener, :ok},
+      {Centraltipsbot.DMListener, :ok},
       # Start the Tweet listener service
-      {Centraltipsbot.TweetListener, :ok}
+      # {Centraltipsbot.TweetListener, :ok}
       # Start the Endpoint (http/https)
       # Add this when we want it! Leave it for now to clean up logs
       # CentraltipsbotWeb.Endpoint
