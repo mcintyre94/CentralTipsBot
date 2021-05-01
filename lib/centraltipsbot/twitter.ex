@@ -2,6 +2,8 @@ defmodule Centraltipsbot.Twitter do
   require Logger
 
   @bearer_token Application.get_env(:extwitter, :oauth)[:bearer_token]
+  @bot_twitter_id Application.get_env(:centraltipsbot, :twitter)[:bot_twitter_id]
+
 
   # Paginated API, this function makes a single call to
   # https://developer.twitter.com/en/docs/twitter-api/v1/direct-messages/sending-and-receiving/api-reference/list-events
@@ -25,18 +27,26 @@ defmodule Centraltipsbot.Twitter do
 
   # Request DMs since the given cursor, which represents the last request we made
   # Returns newest first
-  def dms_since_cursor(cursor, dms_so_far \\ []) do
-    response = fetch_next_dms(cursor)
-    dms_so_far = [response.events | dms_so_far]
+  def dms_received_since_id(since_id, next_cursor \\ nil, dms_so_far \\ []) do
+    response = fetch_next_dms(next_cursor)
+    received_dms = response.events |> Enum.filter(&(&1.message_create.sender_id != @bot_twitter_id))
+    newer_than_since_id = received_dms |> Enum.take_while(&(&1.id != since_id))
 
-    case response |> Map.get(:next_cursor) do
-      nil ->
-        # No further pages, return what we got (sorted newest first) + the last cursor
-        sorted_dms = dms_so_far |> List.flatten |> Enum.sort_by(fn d -> (d.created_timestamp |> String.to_integer) * -1 end)
-        %{cursor: cursor, dms: sorted_dms}
-      next_cursor ->
-        # Further pages, request more
-        dms_since_cursor(next_cursor, dms_so_far)
+    dms_so_far = [ dms_so_far | newer_than_since_id ] # Can always append because each call gets older data always in reverse-chronological order
+
+    if(received_dms == newer_than_since_id) do
+      # We didn't find the since_id in received DMs, so recurse if we have more pages
+      case response |> Map.get(:next_cursor) do
+        nil ->
+          # No further pages, return what we got
+          dms_so_far |> List.flatten
+        next_cursor ->
+          # Further pages, request more
+          dms_received_since_id(since_id, next_cursor, dms_so_far)
+      end
+    else
+      # We found the since_id, return everything before it
+      dms_so_far |> List.flatten
     end
   end
 

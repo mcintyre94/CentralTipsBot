@@ -20,8 +20,7 @@ Repo.insert!(%LastProcessed{
 Repo.insert!(%LastProcessed{
   name: "twitter_dms",
   last_processed: %{
-    pagination_cursor: nil,
-    dm_id: nil
+    dm_id: "1388431447665610757" # Don't want to replay the whole test DM conversation every time!
   }
 })
 

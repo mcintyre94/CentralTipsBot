@@ -40,7 +40,6 @@ defmodule Centraltipsbot.TweetListener do
     # Else, store it as a TipsMissingDestination
     %{"text" => text, "in_reply_to_user_id" => recipient_id, "author_id" => sender_id, "id" => id} = tweet
 
-
     updated_last_processed = LastProcessed.changeset(last_processed_object, %{last_processed: %{tweet_id: id} })
 
     case parse_text(text) do
@@ -52,7 +51,7 @@ defmodule Centraltipsbot.TweetListener do
         Logger.info("Parsed tip of #{tip_amount} from #{sender_id} to #{recipient_id}")
 
         # Check if we have a wallet for this email address
-        case Repo.get_by(Wallet, [source: "twitter", source_id: recipient_id]) do
+        case Repo.get_by(Wallet, [source: "twitter", source_id: recipient_id, confirmed: true]) do
           nil ->
             # Insert into TipsMissingDestination
             Logger.info("Recipient has no currently known email address")
@@ -76,7 +75,7 @@ defmodule Centraltipsbot.TweetListener do
     # Get all the Tweets since the last one
     new_tweets = Twitter.tweets_to_process_since_id(last_tweet_id)
 
-    # Process from oldest to newest, ignore anything we sent
+    # Process from oldest to newest
     new_tweets |> Enum.reverse |> Enum.map(&process_tweet(&1, last_processed_object))
 
     Logger.info("Successfully processed #{Enum.count(new_tweets)} new tweets")
