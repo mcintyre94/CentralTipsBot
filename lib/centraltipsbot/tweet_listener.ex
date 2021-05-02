@@ -1,9 +1,8 @@
 defmodule Centraltipsbot.TweetListener do
   use GenServer
   require Logger
-  alias Centraltipsbot.{Repo, Twitter, LastProcessed, Wallet}
+  alias Centraltipsbot.{LastProcessed, Repo, Tip, Twitter}
   alias Ecto.Multi
-  import Ecto.Query
 
   @interval Application.get_env(:centraltipsbot, :tweet_listener)[:interval]
 
@@ -50,17 +49,40 @@ defmodule Centraltipsbot.TweetListener do
       {:ok, tip_amount} ->
         Logger.info("Parsed tip of #{tip_amount} from #{sender_id} to #{recipient_id}")
 
-        # Check if we have a wallet for this email address
-        case Repo.get_by(Wallet, [source: "twitter", source_id: recipient_id, confirmed: true]) do
-          nil ->
-            # Insert into TipsMissingDestination
-            Logger.info("Recipient has no currently known email address")
-          wallet ->
-            # Insert into TipsWithDestination
-            Logger.info("Recipient has known email address #{wallet.email}")
+        sender_twitter_username = case Twitter.get_user(sender_id) do
+          {:ok, user} -> user.screen_name
+          {:err, :twitter_user_not_found} ->
+            Logger.info("Unable to find twitter username for Twitter ID #{sender_id} in tweet #{id} (user not found)")
+            nil
+          {:err, :twitter_user_suspended} ->
+            Logger.info("Unable to find twitter username for Twitter ID #{sender_id} in tweet #{id} (user suspended)")
+            nil
+          {:err, err} ->
+            Logger.info("Unable to find twitter username for Twitter ID #{sender_id} in tweet #{id} (error: #{inspect(err)})")
+            nil
         end
-        Repo.update(updated_last_processed)
-        # TODO: store it!
+
+        # Don't need username in Twitter URL: https://stackoverflow.com/questions/27836043/get-tweet-url-having-only-tweet-id/27843083
+        tweet_url = "https://twitter.com/t/status/#{id}"
+        memo = case sender_twitter_username do
+          nil -> "Tip for #{tweet_url} (central.tips)"
+          _ -> "Tip from @#{sender_twitter_username} for #{tweet_url} (central.tips)"
+        end
+
+        tip = %Tip{
+          from_source: "twitter",
+          from_source_id: sender_id,
+          to_source: "twitter",
+          to_source_id: recipient_id,
+          quantity: tip_amount,
+          memo: memo,
+          paid: false
+        }
+
+        Multi.new
+        |> Multi.insert(:insert_tip, tip)
+        |> Multi.update(:update_last_processed, updated_last_processed)
+        |> Repo.transaction
     end
 
     Logger.info("Successfully processed Tweet")

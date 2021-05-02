@@ -17,7 +17,7 @@ defmodule Centraltipsbot.Application do
       # Start the wallet watcher service
       # {Centraltipsbot.WalletWatcher, :ok},
       # Start the DM listener service
-      {Centraltipsbot.DMListener, :ok},
+      # {Centraltipsbot.DMListener, :ok},
       # Start the Tweet listener service
       # {Centraltipsbot.TweetListener, :ok}
       # Start the Endpoint (http/https)

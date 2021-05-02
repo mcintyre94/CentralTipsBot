@@ -181,4 +181,23 @@ defmodule Centraltipsbot.Twitter do
 
     HTTPoison.post url, body, [header]
   end
+
+  def get_user(id_or_username) do
+    try do
+      user = ExTwitter.user(id_or_username)
+      {:ok, user}
+
+    rescue
+      err in [ExTwitter.Error] -> case err.code do
+        # Twitter error code 50 is user not found: https://developer.twitter.com/en/support/twitter-api/error-troubleshooting#error-codes
+        50 -> {:err, :twitter_user_not_found}
+        # Twitter error code 63 is user suspended + can't get data on them
+        63 -> {:err, :twitter_user_suspended}
+        # Any other Twitter error is unexpected
+        _ -> {:err, err}
+      end
+    end
+  end
+
+  def get_bearer_token, do: ["Authorization": "Bearer #{@bearer_token}"]
 end

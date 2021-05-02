@@ -1,7 +1,7 @@
 defmodule Centraltipsbot.WalletWatcher do
   use GenServer
   require Logger
-  alias Centraltipsbot.{Repo, Balance, LastProcessed}
+  alias Centraltipsbot.{Balance, LastProcessed, Repo, Twitter}
   alias Ecto.Multi
 
   @interval Application.get_env(:centraltipsbot, :wallet_watcher)[:interval]
@@ -50,23 +50,15 @@ defmodule Centraltipsbot.WalletWatcher do
     # If we are able to process this transaction, we will update the last processed object to it
     updated_last_processed = LastProcessed.changeset(last_processed_object, %{last_processed: transaction})
 
-    twitter_user_id = try do
-      user = ExTwitter.user(maybe_twitter_username)
-      user.id_str
-    rescue
-
-      err in [ExTwitter.Error] -> case err.code do
-        # Twitter error code 50 is user not found: https://developer.twitter.com/en/support/twitter-api/error-troubleshooting#error-codes
-        50 ->
-          Logger.info("Unable to find twitter username in transaction memo #{memo}")
-          nil
-        # Twitter error code 63 is user suspended + can't get data on them
-        63 ->
-          Logger.info("Twitter username in transaction memo #{memo} is suspended")
-          nil
-        # Any other Twitter error is unexpected
-        _ -> raise err
-      end
+    twitter_user_id = case Twitter.get_user(maybe_twitter_username) do
+      {:ok, user} -> user.id_str
+      {:err, :twitter_user_not_found} ->
+        Logger.info("Unable to find twitter username in transaction memo #{memo}")
+        nil
+      {:err, :twitter_user_suspended} ->
+        Logger.info("Twitter username in transaction memo #{memo} is suspended")
+        nil
+      {:err, err} -> raise err
     end
 
     case twitter_user_id do
