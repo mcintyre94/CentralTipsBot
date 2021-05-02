@@ -82,7 +82,8 @@ defmodule Centraltipsbot.WalletWatcher do
 
     # Request incoming transactions from the API (this returns them all)
     url = "https://www.centralized-coin.com/api/incoming/" <> @public_key
-    %HTTPoison.Response{status_code: 200, body: body} = HTTPoison.get!(url)
+    headers = ["User-Agent": "central.tips/latest (monitoring incoming transactions)"]
+    %HTTPoison.Response{status_code: 200, body: body} = HTTPoison.get!(url, headers)
 
     # We receive latest transactions first, so process until we reach last_processed_object (we may not)
     transactions = Jason.decode!(body)["transactions"]
