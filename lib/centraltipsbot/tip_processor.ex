@@ -5,9 +5,10 @@ defmodule Centraltipsbot.TipProcessor do
   alias Ecto.Multi
   import Ecto.Query
 
-  @interval Application.get_env(:centraltipsbot, :tip_processor)[:interval]
-  @enable_payments Application.get_env(:centraltipsbot, :tip_processor)[:enable_payments] === "true"
-  @cc_api_key Application.get_env(:centraltipsbot, :tip_processor)[:cc_api_key]
+  defmodule TipProcessorState do
+    @enforce_keys [:interval, :enable_payments, :cc_api_key]
+    defstruct [:interval, :enable_payments, :cc_api_key]
+  end
 
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -17,9 +18,16 @@ defmodule Centraltipsbot.TipProcessor do
     # Kick off the first request
     # Note: Delay this by the initial interval so that if we get into
     # a crash cycle we don't DDOS the DB
-    Logger.info("Tip Processor started... @enable_payments: #{@enable_payments}")
-    Process.send_after(self(), :check, @interval)
-    {:ok, nil}
+    interval = Application.get_env(:centraltipsbot, :tip_processor)[:interval]
+    enable_payments = Application.get_env(:centraltipsbot, :tip_processor)[:enable_payments] === "true"
+
+    Logger.info("Tip Processor started... enable_payments: #{enable_payments}")
+    Process.send_after(self(), :check, interval)
+    {:ok, %TipProcessorState{
+      interval: interval,
+      enable_payments: enable_payments,
+      cc_api_key: Application.get_env(:centraltipsbot, :tip_processor)[:cc_api_key]
+    }}
   end
 
   # Check the tip sender has sufficient balance
@@ -74,7 +82,7 @@ defmodule Centraltipsbot.TipProcessor do
   end
 
   # Send the tip using CC API
-  def send_tip(%Tip{} = tip, %Wallet{} = to_wallet) do
+  def send_tip(%Tip{} = tip, %Wallet{} = to_wallet, enable_payments, cc_api_key) do
     body = %{
       recipient_email: to_wallet.email,
       force: true,
@@ -82,12 +90,12 @@ defmodule Centraltipsbot.TipProcessor do
       memo: tip.memo
     }
 
-    body = case @enable_payments do
-      true -> Map.put(body, :token, @cc_api_key)
+    body = case enable_payments do
+      true -> Map.put(body, :token, cc_api_key)
       _ -> body
     end
 
-    if(@enable_payments) do
+    if(enable_payments) do
       url = "https://www.centralized-coin.com/api/users/send"
       body = body |> Jason.encode!
       headers = [
@@ -110,13 +118,13 @@ defmodule Centraltipsbot.TipProcessor do
     end
   end
 
-  def process_tip(%Tip{} = tip) do
+  def process_tip(%Tip{} = tip, enable_payments, cc_api_key) do
     case Multi.new |>
     Multi.run(:check_balance, fn repo, _ -> check_balance(repo, tip.from_source, tip.from_source_id, tip.quantity) end) |>
     Multi.run(:check_wallet, fn repo, _ -> check_wallet(repo, tip.to_source, tip.to_source_id) end) |>
     Multi.run(:reduce_balance, fn repo, %{check_balance: balance} -> reduce_balance(repo, balance, tip.quantity) end) |>
     Multi.run(:mark_paid, fn repo, _ -> mark_paid(repo, tip) end) |>
-    Multi.run(:send_tip, fn _, %{check_wallet: wallet} -> send_tip(tip, wallet) end) |>
+    Multi.run(:send_tip, fn _, %{check_wallet: wallet} -> send_tip(tip, wallet, enable_payments, cc_api_key) end) |>
     Repo.transaction do
       {:ok, _} -> Logger.info("Successfully paid tip #{tip.id}")
       {:error, :send_tip, res, _} ->
@@ -128,7 +136,7 @@ defmodule Centraltipsbot.TipProcessor do
     end
   end
 
-  def handle_info(:check, _) do
+  def handle_info(:check, %TipProcessorState{} = state) do
     current_date = Date.utc_today()
     # Will get tips in the last week
     since_date = Date.add(current_date, -7)
@@ -142,12 +150,12 @@ defmodule Centraltipsbot.TipProcessor do
 
     unprocessed_tips = query |> Repo.all
 
-    unprocessed_tips |> Enum.map(&process_tip/1)
+    unprocessed_tips |> Enum.map(&process_tip(&1, state.enable_payments, state.cc_api_key))
 
     Logger.info("Successfully processed #{Enum.count(unprocessed_tips)} unprocessed tips")
 
     # After the interval, perform another check
-    Process.send_after(self(), :check, @interval)
-    {:noreply, nil}
+    Process.send_after(self(), :check, state.interval)
+    {:noreply, state}
   end
 end

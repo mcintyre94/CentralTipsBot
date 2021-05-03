@@ -4,7 +4,10 @@ defmodule Centraltipsbot.TweetListener do
   alias Centraltipsbot.{LastProcessed, Repo, Tip, Twitter}
   alias Ecto.Multi
 
-  @interval Application.get_env(:centraltipsbot, :tweet_listener)[:interval]
+  defmodule TweetListenerState do
+    @enforce_keys [:interval]
+    defstruct [:interval]
+  end
 
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -15,8 +18,9 @@ defmodule Centraltipsbot.TweetListener do
     # Note: Delay this by the initial interval so that if we get into
     # a crash cycle we don't DDOS the Twitter service
     Logger.info("Tweet Listener started...")
-    Process.send_after(self(), :check, @interval)
-    {:ok, nil}
+    interval = Application.get_env(:centraltipsbot, :tweet_listener)[:interval]
+    Process.send_after(self(), :check, interval)
+    {:ok, %TweetListenerState{interval: interval}}
   end
 
   @doc false
@@ -88,7 +92,7 @@ defmodule Centraltipsbot.TweetListener do
     Logger.info("Successfully processed Tweet")
   end
 
-  def handle_info(:check, _) do
+  def handle_info(:check, %TweetListenerState{} = state) do
     # Get last processed object from DB
     last_processed_object = LastProcessed |> Repo.get_by(name: "twitter_tweets")
     %{last_processed: last_processed} = last_processed_object
@@ -103,7 +107,7 @@ defmodule Centraltipsbot.TweetListener do
     Logger.info("Successfully processed #{Enum.count(new_tweets)} new tweets")
 
     # After the interval, perform another check
-    Process.send_after(self(), :check, @interval)
-    {:noreply, nil}
+    Process.send_after(self(), :check, state.interval)
+    {:noreply, state}
   end
 end

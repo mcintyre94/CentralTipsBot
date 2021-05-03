@@ -5,7 +5,10 @@ defmodule Centraltipsbot.DMListener do
   alias Ecto.Multi
   import Ecto.Query
 
-  @interval Application.get_env(:centraltipsbot, :dm_listener)[:interval]
+  defmodule DMListenerState do
+    @enforce_keys [:interval]
+    defstruct [:interval]
+  end
 
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -16,8 +19,11 @@ defmodule Centraltipsbot.DMListener do
     # Note: Delay this by the initial interval so that if we get into
     # a crash cycle we don't DDOS the Twitter service
     Logger.info("DM Listener started...")
-    Process.send_after(self(), :check, @interval)
-    {:ok, nil}
+    interval = Application.get_env(:centraltipsbot, :dm_listener)[:interval]
+    Process.send_after(self(), :check, interval)
+    {:ok, %DMListenerState{
+      interval: interval
+    }}
   end
 
   defp send_confirm_dm(recipient_id, email) do
@@ -107,7 +113,7 @@ defmodule Centraltipsbot.DMListener do
     Logger.info("Successfully processed DM")
   end
 
-  def handle_info(:check, _) do
+  def handle_info(:check, %DMListenerState{} = state) do
     # Get last processed object from DB
     last_processed_object = LastProcessed |> Repo.get_by(name: "twitter_dms")
     %{last_processed: last_processed} = last_processed_object
@@ -122,7 +128,7 @@ defmodule Centraltipsbot.DMListener do
     Logger.info("Successfully processed #{Enum.count(new_dms)} new DMs")
 
     # After the interval, perform another check
-    Process.send_after(self(), :check, @interval)
-    {:noreply, nil}
+    Process.send_after(self(), :check, state.interval)
+    {:noreply, state}
   end
 end

@@ -4,8 +4,10 @@ defmodule Centraltipsbot.WalletWatcher do
   alias Centraltipsbot.{Balance, LastProcessed, Repo, Twitter}
   alias Ecto.Multi
 
-  @interval Application.get_env(:centraltipsbot, :wallet_watcher)[:interval]
-  @public_key Application.get_env(:centraltipsbot, :wallet_watcher)[:public_key]
+  defmodule WalletWatcherState do
+    @enforce_keys [:interval, :public_key]
+    defstruct [:interval, :public_key]
+  end
 
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -16,8 +18,12 @@ defmodule Centraltipsbot.WalletWatcher do
     # Note: Delay this by the initial interval so that if we get into
     # a crash cycle we don't DDOS the CC service
     Logger.info("Wallet Watcher started...")
-    Process.send_after(self(), :check, @interval)
-    {:ok, nil}
+    interval = Application.get_env(:centraltipsbot, :wallet_watcher)[:interval]
+    Process.send_after(self(), :check, interval)
+    {:ok, %WalletWatcherState{
+      interval: interval,
+      public_key: Application.get_env(:centraltipsbot, :wallet_watcher)[:public_key]
+    }}
   end
 
   defp update_balance(twitter_user_id, amount_received, updated_last_processed) do
@@ -75,13 +81,13 @@ defmodule Centraltipsbot.WalletWatcher do
     Logger.info("Successfully processed transaction")
   end
 
-  def handle_info(:check, _) do
+  def handle_info(:check, %WalletWatcherState{} = state) do
     # Get the last processed object from DB
     last_processed_object = LastProcessed |> Repo.get_by(name: "wallet_incoming")
     %{last_processed: last_processed} = last_processed_object
 
     # Request incoming transactions from the API (this returns them all)
-    url = "https://www.centralized-coin.com/api/incoming/" <> @public_key
+    url = "https://www.centralized-coin.com/api/incoming/" <> state.public_key
     headers = ["User-Agent": "central.tips/latest (monitoring incoming transactions)"]
     %HTTPoison.Response{status_code: 200, body: body} = HTTPoison.get!(url, headers)
 
@@ -95,7 +101,7 @@ defmodule Centraltipsbot.WalletWatcher do
     Logger.info("Successfully processed #{Enum.count(new_transactions)} new transactions")
 
     # After the interval, perform another check
-    Process.send_after(self(), :check, @interval)
-    {:noreply, nil}
+    Process.send_after(self(), :check, state.interval)
+    {:noreply, state}
   end
 end
