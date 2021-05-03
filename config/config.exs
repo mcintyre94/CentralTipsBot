@@ -6,28 +6,31 @@
 
 # General application configuration
 use Mix.Config
+require Logger
 
-config :centraltipsbot,
-  ecto_repos: [Centraltipsbot.Repo],
-  generators: [binary_id: true],
-  wallet_watcher: [
-    interval: 10_000, # milliseconds
-    public_key: "6ritkvkev6qnq933qf96kyn7rnvfyi7ey3kvyrp9f7ipqvtk67yn9iyleti9irne" # deposits wallet public key
-  ],
-  dm_listener: [
-    interval: 60_000 # milliseconds (Twitter limit is 15 req/15 mins)
-  ],
-  tweet_listener: [
-    interval: 10_000 # milliseconds (Twitter limit is 450 req/15 mins)
-  ],
-  tip_processor: [
-    interval: 10_000, # milliseconds
-    enable_payments: System.get_env("ENABLE_PAYMENTS", "false"), # Only send real payments if this is true
-    cc_api_key: System.get_env("CENTRALIZED_COINS_API_KEY")
-  ],
-  twitter: [
-    bot_twitter_id: "1382976893515862016"
-  ]
+Logger.info("Loaded config.exs")
+
+# config :centraltipsbot,
+#   ecto_repos: [Centraltipsbot.Repo],
+#   generators: [binary_id: true],
+#   wallet_watcher: [
+#     interval: 10_000, # milliseconds
+#     public_key: "6ritkvkev6qnq933qf96kyn7rnvfyi7ey3kvyrp9f7ipqvtk67yn9iyleti9irne" # deposits wallet public key
+#   ],
+#   dm_listener: [
+#     interval: 60_000 # milliseconds (Twitter limit is 15 req/15 mins)
+#   ],
+#   tweet_listener: [
+#     interval: 10_000 # milliseconds (Twitter limit is 450 req/15 mins)
+#   ],
+#   tip_processor: [
+#     interval: 10_000, # milliseconds
+#     enable_payments: System.get_env("ENABLE_PAYMENTS", "false"), # Only send real payments if this is true
+#     cc_api_key: System.get_env("CENTRALIZED_COINS_API_KEY")
+#   ],
+#   twitter: [
+#     bot_twitter_id: "1382976893515862016"
+#   ]
 
 # Configures the endpoint
 config :centraltipsbot, CentraltipsbotWeb.Endpoint,
@@ -46,13 +49,13 @@ config :logger, :console,
 config :phoenix, :json_library, Jason
 
 # Configure Twitter credentials
-config :extwitter, :oauth, [
-  consumer_key: System.get_env("TWITTER_CONSUMER_KEY"),
-  consumer_secret: System.get_env("TWITTER_CONSUMER_SECRET"),
-  access_token: System.get_env("TWITTER_ACCESS_TOKEN"),
-  access_token_secret: System.get_env("TWITTER_ACCESS_SECRET"),
-  bearer_token: System.get_env("TWITTER_BEARER_TOKEN")
-]
+# config :extwitter, :oauth, [
+#   consumer_key: System.get_env("TWITTER_CONSUMER_KEY"),
+#   consumer_secret: System.get_env("TWITTER_CONSUMER_SECRET"),
+#   access_token: System.get_env("TWITTER_ACCESS_TOKEN"),
+#   access_token_secret: System.get_env("TWITTER_ACCESS_SECRET"),
+#   bearer_token: System.get_env("TWITTER_BEARER_TOKEN")
+# ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
