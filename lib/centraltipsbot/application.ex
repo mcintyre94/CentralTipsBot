@@ -19,7 +19,9 @@ defmodule Centraltipsbot.Application do
       # Start the DM listener service
       # {Centraltipsbot.DMListener, :ok},
       # Start the Tweet listener service
-      # {Centraltipsbot.TweetListener, :ok}
+      # {Centraltipsbot.TweetListener, :ok},
+      # Start the Tip processor service
+      # {Centraltipsbot.TipProcessor, :ok}
       # Start the Endpoint (http/https)
       # Add this when we want it! Leave it for now to clean up logs
       # CentraltipsbotWeb.Endpoint

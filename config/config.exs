@@ -20,6 +20,11 @@ config :centraltipsbot,
   tweet_listener: [
     interval: 10_000 # milliseconds (Twitter limit is 450 req/15 mins)
   ],
+  tip_processor: [
+    interval: 10_000, # milliseconds
+    enable_payments: System.get_env("ENABLE_PAYMENTS", "false"), # Only send real payments if this is true
+    cc_api_key: System.get_env("CENTRALIZED_COINS_API_KEY")
+  ],
   twitter: [
     bot_twitter_id: "1382976893515862016"
   ]
