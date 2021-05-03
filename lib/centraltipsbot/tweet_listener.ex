@@ -53,7 +53,9 @@ defmodule Centraltipsbot.TweetListener do
       {:ok, tip_amount} ->
         Logger.info("Parsed tip of #{tip_amount} from #{sender_id} to #{recipient_id}")
 
-        sender_twitter_username = case Twitter.get_user(sender_id) do
+        # Elixir integer's are arbitrary sized, so don't need to worry about large IDs
+        {twitter_id_int, _} = Integer.parse(sender_id)
+        sender_twitter_username = case Twitter.get_user(twitter_id_int) do
           {:ok, user} -> user.screen_name
           {:err, :twitter_user_not_found} ->
             Logger.info("Unable to find twitter username for Twitter ID #{sender_id} in tweet #{id} (user not found)")
