@@ -1,10 +1,6 @@
 defmodule Centraltipsbot.Twitter do
   require Logger
 
-  @bearer_token Application.get_env(:extwitter, :oauth)[:bearer_token]
-  @bot_twitter_id Application.get_env(:centraltipsbot, :twitter)[:bot_twitter_id]
-
-
   # Paginated API, this function makes a single call to
   # https://developer.twitter.com/en/docs/twitter-api/v1/direct-messages/sending-and-receiving/api-reference/list-events
   defp fetch_next_dms(cursor) do
@@ -29,7 +25,8 @@ defmodule Centraltipsbot.Twitter do
   # Returns newest first
   def dms_received_since_id(since_id, next_cursor \\ nil, dms_so_far \\ []) do
     response = fetch_next_dms(next_cursor)
-    received_dms = response.events |> Enum.filter(&(&1.message_create.sender_id != @bot_twitter_id))
+    bot_twitter_id = Application.get_env(:centraltipsbot, :twitter)[:bot_twitter_id]
+    received_dms = response.events |> Enum.filter(&(&1.message_create.sender_id != bot_twitter_id))
     newer_than_since_id = received_dms |> Enum.take_while(&(&1.id != since_id))
 
     dms_so_far = [ dms_so_far | newer_than_since_id ] # Can always append because each call gets older data always in reverse-chronological order
@@ -90,7 +87,8 @@ defmodule Centraltipsbot.Twitter do
     |> URI.encode_query
 
     url="#{url}?#{params}"
-    headers = ["Authorization": "Bearer #{@bearer_token}"]
+    bearer_token = Application.get_env(:extwitter, :oauth)[:bearer_token]
+    headers = ["Authorization": "Bearer #{bearer_token}"]
 
     {:ok, response} = HTTPoison.get(url, headers)
     case response.status_code do
@@ -198,6 +196,4 @@ defmodule Centraltipsbot.Twitter do
       end
     end
   end
-
-  def get_bearer_token, do: ["Authorization": "Bearer #{@bearer_token}"]
 end
