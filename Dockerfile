@@ -1,4 +1,7 @@
-FROM elixir:1.11-alpine AS build
+###
+### First Stage - Building the Release
+###
+FROM hexpm/elixir:1.11.2-erlang-23.3.2-alpine-3.13.3 AS build
 
 # install build dependencies
 RUN apk add --no-cache build-base npm
@@ -16,28 +19,41 @@ ENV SECRET_KEY_BASE=nokey
 
 # Copy over the mix.exs and mix.lock files to load the dependencies. If those
 # files don't change, then we don't keep re-fetching and rebuilding the deps.
-COPY mix.exs ./
-COPY mix.lock ./
-COPY config ./config
+COPY mix.exs mix.lock ./
+COPY config config
 
 RUN mix deps.get --only prod && \
     mix deps.compile
 
-# build assets
+# install npm dependencies
 COPY assets/package.json assets/package-lock.json ./assets/
 RUN npm --prefix ./assets ci --progress=false --no-audit --loglevel=error
 
-# If using TailwindCSS, there is a special "purge" step and that requires the
-# code to see what is being used. So pull the project source in here.
-COPY . .
+COPY priv priv
+COPY assets assets
+
+# NOTE: If using TailwindCSS, it uses a special "purge" step and that requires
+# the code in `lib` to see what is being used. Uncomment that here before
+# running the npm deploy script if that's the case.
+# COPY lib lib
+
+# build assets
 RUN npm run --prefix ./assets deploy
 RUN mix phx.digest
 
+# copy source here if not using TailwindCSS
+COPY lib lib
+
 # compile and build release
-RUN mix release
+COPY rel rel
+RUN mix do compile, release
+
+###
+### Second Stage - Setup the Runtime Environment
+###
 
 # prepare release docker image
-FROM alpine:3.13 AS app
+FROM alpine:3.13.3 AS app
 RUN apk add --no-cache openssl ncurses-libs
 
 WORKDIR /app
