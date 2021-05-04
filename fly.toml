@@ -6,7 +6,7 @@ kill_signal = "SIGTERM"
 kill_timeout = 5
 
 [env]
-  ENABLE_PAYMENTS = "false"
+  ENABLE_PAYMENTS = "true"
 
 # Uncomment when we add the web endpoint
 #[[services]]
