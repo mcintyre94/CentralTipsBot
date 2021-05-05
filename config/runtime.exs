@@ -3,8 +3,6 @@ require Logger
 
 # This file copied from https://fly.io/docs/getting-started/elixir/#runtime-config
 
-Logger.info("Loaded releases.exs")
-
 # Copied from config.exs, for runtime
 
 config :centraltipsbot,
@@ -71,4 +69,21 @@ if config_env() == :prod do
     # IMPORTANT: Or it won't find the DB server
     socket_options: [:inet6],
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+
+  sentry_ingest_url =
+    System.get_env("SENTRY_INGEST_URL") ||
+      raise """
+      environment variable SENTRY_INGEST_URL is missing.
+      For example: https://publickey@abc.ingest.sentry.io/xyz
+      """
+
+  config :sentry,
+    dsn: sentry_ingest_url,
+    environment_name: :prod,
+    enable_source_code_context: true,
+    root_source_code_path: File.cwd!(),
+    tags: %{
+      env: "production"
+    },
+    included_environments: [:prod]
 end
