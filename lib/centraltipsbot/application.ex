@@ -15,7 +15,7 @@ defmodule Centraltipsbot.Application do
       # Add this when we want it!
       # {Phoenix.PubSub, name: Centraltipsbot.PubSub},
       # Start the wallet watcher service
-      {Centraltipsbot.WalletWatcher, :ok},
+      # {Centraltipsbot.WalletWatcher, :ok},
       # Start the DM listener service
       {Centraltipsbot.DMListener, :ok},
       # Start the Tweet listener service
