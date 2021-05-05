@@ -5,23 +5,26 @@ defmodule Centraltipsbot.WalletWatcher do
   alias Ecto.Multi
 
   defmodule WalletWatcherState do
-    @enforce_keys [:interval, :public_key]
-    defstruct [:interval, :public_key]
+    @enforce_keys [:public_key]
+    defstruct [:public_key]
   end
 
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
+  def check do
+    send(__MODULE__, :check)
+  end
+
   def init(:ok) do
-    # Kick off the first request
-    # Note: Delay this by the initial interval so that if we get into
-    # a crash cycle we don't DDOS the CC service
+    # Send a request after 1 hour, just to make sure we update on restarts even if we don't get more requests
+
     Logger.info("Wallet Watcher started...")
-    interval = Application.get_env(:centraltipsbot, :wallet_watcher)[:interval]
-    Process.send_after(self(), :check, interval)
+    one_hour = 1000 * 60 * 60 # milliseconds
+
+    Process.send_after(self(), :check, one_hour)
     {:ok, %WalletWatcherState{
-      interval: interval,
       public_key: Application.get_env(:centraltipsbot, :wallet_watcher)[:public_key]
     }}
   end
@@ -99,9 +102,6 @@ defmodule Centraltipsbot.WalletWatcher do
     new_transactions |> Enum.reverse |> Enum.map(&(process_transaction(&1, last_processed_object)))
 
     Logger.info("Successfully processed #{Enum.count(new_transactions)} new transactions")
-
-    # After the interval, perform another check
-    Process.send_after(self(), :check, state.interval)
     {:noreply, state}
   end
 end

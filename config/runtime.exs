@@ -11,7 +11,6 @@ config :centraltipsbot,
   ecto_repos: [Centraltipsbot.Repo],
   generators: [binary_id: true],
   wallet_watcher: [
-    interval: 60_000, # milliseconds
     public_key: "6ritkvkev6qnq933qf96kyn7rnvfyi7ey3kvyrp9f7ipqvtk67yn9iyleti9irne" # deposits wallet public key
   ],
   dm_listener: [

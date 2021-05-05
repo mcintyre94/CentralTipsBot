@@ -14,10 +14,18 @@ defmodule CentraltipsbotWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/api", CentraltipsbotWeb do
+    pipe_through :api
+
+    get "/cc-incoming", IncomingController, :check
+  end
+
   scope "/", CentraltipsbotWeb do
     pipe_through :browser
 
-    live "/", PageLive, :index
+    get "/", HomeController, :index
+
+    # live "/", PageLive, :index
   end
 
   # Other scopes may use custom stacks.
