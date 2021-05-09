@@ -138,8 +138,8 @@ defmodule Centraltipsbot.TipProcessor do
 
   def handle_info(:check, %TipProcessorState{} = state) do
     current_date = Date.utc_today()
-    # Will get tips in the last week
-    since_date = Date.add(current_date, -7)
+    # Will get tips in the last 30 days
+    since_date = Date.add(current_date, -30)
     {:ok, since_date_naive} = NaiveDateTime.new(since_date, ~T[00:00:00.000])
 
     # Get unprocessed tips, oldest first
