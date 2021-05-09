@@ -64,11 +64,8 @@ USER nobody:nobody
 
 COPY --from=build --chown=nobody:nobody /app/_build/prod/rel/centraltipsbot ./
 
-ADD entrypoint.sh ./
-
 ENV HOME=/app
 ENV MIX_ENV=prod
 ENV SECRET_KEY_BASE=nokey
 ENV PORT=4000
-ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["bin/centraltipsbot", "start"]

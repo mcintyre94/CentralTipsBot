@@ -9,7 +9,9 @@ kill_timeout = 5
   ENABLE_PAYMENTS = "true"
   SENTRY_INGEST_URL = "https://b4ee84257c52464d9a9fb9a2409d3eea@o618213.ingest.sentry.io/5751153"
 
-# Uncomment when we add the web endpoint
+[deploy]
+  release_command = "/app/bin/centraltipsbot eval Centraltipsbot.Release.migrate"
+
 [[services]]
   internal_port = 4000
   protocol = "tcp"
